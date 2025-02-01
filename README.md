@@ -161,5 +161,5 @@ sudo iptables -A FORWARD -i eth0 -o wlan0 -m state --state ESTABLISHED,RELATED -
 
 and of course save whenever you want the changes to be persistent:
 ```sh
-sudo iptables-save > /etc/iptables/rules.v4
+sudo iptables-save | sudo tee /etc/iptables/rules.v4
 ```

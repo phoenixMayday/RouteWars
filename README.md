@@ -139,7 +139,7 @@ However, we can intercept packets being processed using the [libnetfilter_queue]
 
 ### 1. Install libnetfilter-queue
 
-```bash
+```sh
 sudo apt install libnetfilter-queue-dev
 ```
 
@@ -162,4 +162,32 @@ sudo iptables -A FORWARD -i eth0 -o wlan0 -m state --state ESTABLISHED,RELATED -
 and of course save whenever you want the changes to be persistent:
 ```sh
 sudo iptables-save | sudo tee /etc/iptables/rules.v4
+```
+
+### 3. Intercept packets in python
+
+Now the packets are in NFQUEUE, we can write a python script to handle them.
+
+There's a [`router_monitor.py`](router_monitor.py) in this repo that does this. To run it, go the the RouteWars directory and:
+
+Install pip:
+```
+sudo apt install python3-pip
+```
+
+Create virtual environment:
+```
+python3 -m venv env
+```
+
+Activate env and install dependent libraries:
+```
+source env/bin/activate
+pip3 install scapy netfilterqueue
+```
+
+Deactivate env and run code with sudo privileges:
+```
+deactivate
+sudo router_monitor.py
 ```

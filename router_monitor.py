@@ -1,5 +1,5 @@
 import os
-os.sys.path.append('./env/lib/python3.11/site-packages/')
+os.sys.path.append('./env/lib/python3.11/site-packages/') # check env for packages
 
 from scapy.all import *
 from netfilterqueue import NetfilterQueue

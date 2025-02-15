@@ -11,8 +11,24 @@ As Zig is interoperable with C, we can use libnetfilter_queue C library to inter
 
 In this first test, the only "processing" we're doing is spawning a new thread and printing the first 16 bytes of each packet. 
 
+Can build executable by running
+```sh
+zig build-exe nfqueue_test.zig -lnetfilter_queue -lc
+```
+in the `zig/` directory.
 ### Results:
-TODO: Write this section after proper analysis has been done with profiling software instead of positing. For now, let's make assumptions based off of what we observed:
+*TODO: Write this section after proper analysis has been done with profiling software instead of positing. For now, let's make assumptions based off of what we observed:*
 
 An end user device can successfully access the internet through the router, and the packets are indeed printed on the screen. However, in less than a minute, the device stops being able to access the internet and nothing more is printed by the program. Since we're spawning a new thread (an OS-level thread too, not a lightweight one) for each packet, the Pi is probably getting overloaded and freezing up.
 
+# Experiment 2: [`nfqueue_test2.zig`](zig/nfqueue_test2.zig)
+
+Modifies the first experiment.
+- Adds a pool of worker threads to handle the packets instead of spawning a new thread for each packet
+- Processes packets in batches to reduce overhead
+
+Can build executable by running
+```sh
+zig build-exe nfqueue_test2.zig -lnetfilter_queue -lc
+```
+in the `zig/` directory.

@@ -44,9 +44,6 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
         // Spawn a new thread to handle the packet concurrently
         const handle_packet = struct {
             fn handle(payload_ptr: [*c]u8, len: c_int) void {
-                // Simulate packet processing
-                std.time.sleep(100000000); // 100ms delay
-
                 // Print the first few bytes of the payload for demonstration
                 const max_bytes_to_print = @as(usize, @intCast(@min(len, 16))); // Convert to usize
                 std.debug.print("Packet processed (length: {} bytes). First {} bytes: ", .{ len, max_bytes_to_print });

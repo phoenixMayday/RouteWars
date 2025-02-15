@@ -2,5 +2,5 @@ env/
 .obsidian/
 router.log
 
-nfqueue_test
-nfqueue_test.o
+*/nfqueue_test
+*/nfqueue_test.o

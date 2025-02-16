@@ -9,6 +9,8 @@ const netfilter = @cImport({
 
 // Values we can change for testing
 const BATCH_SIZE = 10;
+const TIMEOUT_NS = 1_000_000_000; // 1 second timeout
+const NUM_WORKER_THREADS = 3; // Can be adjusted to match system's capabilities
 var allocator = std.heap.page_allocator;
 
 // nfq_handle represents a connection to the Netfilter queue subsystem
@@ -34,11 +36,23 @@ fn worker() void {
     while (true) {
         // Safely access packet_queue and wait for incoming packets
         mutex.lock();
+
         while (packet_queue.items.len == 0 and !shutdown) {
-            cond.wait(&mutex);
+            cond.timedWait(&mutex, TIMEOUT_NS) catch {
+                // Timeout reached, process whatever packets are available
+                break;
+            };
         }
 
-        if (shutdown and packet_queue.items.len == 0) {
+        if (packet_queue.items.len == 0) {
+            mutex.unlock();
+            if (shutdown) { // Graceful shutdown
+                break;
+            } else { // Or skip iteration
+                continue;
+            }
+        }
+        if (shutdown and packet_queue.items.len == 0) { // graceful shutdown
             mutex.unlock();
             break;
         }
@@ -92,8 +106,6 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
     payload_len = netfilter.nfq_get_payload(nfad, &payload);
 
     if (payload_len >= 0) {
-        std.debug.print("Packet received (id: {}, length: {} bytes)\n", .{ id, payload_len });
-
         std.debug.print("Packet received (id: {}, length: {} bytes)\n", .{ id, payload_len });
 
         // Copy payload to heap
@@ -170,9 +182,9 @@ pub fn main() !void {
 
     // Initialise packet_queue
     packet_queue = std.ArrayList(Packet).init(allocator);
+    defer packet_queue.deinit();
 
     // Initialise thread pool
-    const num_threads = 3; // Can be adjusted to match system's capabilities
     thread_pool = std.ArrayList(std.Thread).init(allocator);
     defer {
         shutdown = true;
@@ -183,7 +195,7 @@ pub fn main() !void {
         thread_pool.deinit();
     }
 
-    for (0..num_threads) |_| {
+    for (0..NUM_WORKER_THREADS) |_| {
         const thread = try std.Thread.spawn(.{}, worker, .{});
         try thread_pool.append(thread);
     }

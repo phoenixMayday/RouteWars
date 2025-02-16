@@ -7,6 +7,10 @@ const netfilter = @cImport({
     @cInclude("linux/netfilter.h");
 });
 
+// Values we can change for testing
+const BATCH_SIZE = 10;
+var allocator = std.heap.page_allocator;
+
 // nfq_handle represents a connection to the Netfilter queue subsystem
 // You'd use this handle for opening/closing opening a connection to the queue
 const QueueHandle = ?*netfilter.nfq_handle;
@@ -14,9 +18,6 @@ const QueueHandle = ?*netfilter.nfq_handle;
 // nfq_q_handle represents a SPECIFIC queue in the Netfilter queue subsystem
 // You'd use this handle for determining how packets are handled
 const Queue = ?*netfilter.nfq_q_handle;
-
-// IDEA: experiment with different Zig allocators to compare performance
-var allocator = std.heap.page_allocator;
 
 // Make a packet queue that can be safely accessed
 const Packet = struct { payload: []u8, id: c_uint };
@@ -49,6 +50,8 @@ fn worker() void {
             continue;
         };
         mutex.unlock();
+
+        std.debug.print("Batch size: {}\n", .{batch.len});
 
         // Process packets in batch
         for (batch) |packet| {
@@ -108,7 +111,12 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
             std.debug.print("Error: Failed to add packet to queue\n", .{});
             return netfilter.NF_DROP;
         };
-        cond.signal();
+
+        // Signal worker thread once batch size is reach
+        if (packet_queue.items.len >= BATCH_SIZE) {
+            cond.signal();
+        }
+
         mutex.unlock();
     }
 
@@ -164,7 +172,7 @@ pub fn main() !void {
     packet_queue = std.ArrayList(Packet).init(allocator);
 
     // Initialise thread pool
-    const num_threads = 4; // Can be adjusted to match system's capabilities
+    const num_threads = 3; // Can be adjusted to match system's capabilities
     thread_pool = std.ArrayList(std.Thread).init(allocator);
     defer {
         shutdown = true;

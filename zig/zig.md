@@ -21,7 +21,7 @@ in the `zig/` directory.
 
 An end user device can successfully access the internet through the router, and the packets are indeed printed on the screen. However, in less than a minute, the device stops being able to access the internet and nothing more is printed by the program. Since we're spawning a new thread (an OS-level thread too, not a lightweight one) for each packet, the Pi is probably getting overloaded and freezing up.
 
-# Experiment 2: [`nfqueue_test2.zig`](zig/nfqueue_test2.zig)
+# Experiment 2: [`nfqueue_test2.zig`](nfqueue_test2.zig)
 
 Modifies the first experiment.
 - Adds a pool of worker threads to handle the packets instead of spawning a new thread for each packet

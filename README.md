@@ -213,3 +213,63 @@ N/A
 
 ### Gleam:
 N/A
+
+# Part 4: Load-Testing the Router
+
+### 1. Create Network Namespaces
+```sh
+sudo ip netns add ns1
+sudo ip netns add ns2
+```
+
+### 2. Create a virtual ethernet (veth) pair
+
+A veth pair is like a virtual network cable connecting two interfaces
+```sh
+sudo ip link add veth0 type veth peer name veth1
+```
+
+### 3. Assign each end of the veth pair to a namespace
+```sh
+sudo ip link set veth0 netns ns1
+sudo ip link set veth1 netns ns2
+```
+
+### 4. Assign IPs and bring up interfaces
+```sh
+sudo ip netns exec ns1 ip addr add 192.168.1.1/24 dev veth0
+sudo ip netns exec ns1 ip link set veth0 up
+
+sudo ip netns exec ns2 ip addr add 192.168.1.2/24 dev veth1
+sudo ip netns exec ns2 ip link set veth1 up
+```
+
+Also, enable the loopback interface inside each namespace:
+```sh
+sudo ip netns exec ns1 ip link set lo up
+sudo ip netns exec ns2 ip link set lo up
+```
+
+### 5. Test connectivity
+```sh
+sudo ip netns exec ns1 ping -c 3 192.168.1.2
+```
+
+### 6. Use `iperf3` for throughput test
+```sh
+sudo apt install iperf3
+```
+
+Then, set up server inside `ns2` and run a client from `ns1`. These commands will run in the foreground so I personally run each one inside different `tmux` windows, but you could also run them in the background or in separate terminals in you'd prefer.
+
+Set up server inside `ns2`:
+```sh
+sudo ip netns exec ns2 iperf3 -s
+```
+
+Run a client from `ns1`:
+```sh
+sudo ip netns exec ns1 iperf3 -c 192.168.1.2
+```
+
+## THIS ISN'T WORKING PROPERLY YET. The veths are able to connect to each other without the router implementation running.

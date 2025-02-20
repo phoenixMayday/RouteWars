@@ -222,11 +222,12 @@ sudo ip netns add ns1
 sudo ip netns add ns2
 ```
 
-### 2. Create a virtual ethernet (veth) pair
+### 2. Create virtual ethernet (veth) pairs
 
-A veth pair is like a virtual network cable connecting two interfaces
+A veth pair is like a virtual network cable connecting two interfaces. We need to make a pair for each interface we want to simulate, i.e. one to represent `wlan0` and one to represent `eth0`.
 ```sh
-sudo ip link add veth0 type veth peer name veth1
+sudo ip link add veth0 type veth peer name veth0-rtr
+sudo ip link add veth1 type veth peer name veth1-rtr
 ```
 
 ### 3. Assign each end of the veth pair to a namespace
@@ -240,7 +241,7 @@ sudo ip link set veth1 netns ns2
 sudo ip netns exec ns1 ip addr add 192.168.1.1/24 dev veth0
 sudo ip netns exec ns1 ip link set veth0 up
 
-sudo ip netns exec ns2 ip addr add 192.168.1.2/24 dev veth1
+sudo ip netns exec ns2 ip addr add 192.168.2.1/24 dev veth1
 sudo ip netns exec ns2 ip link set veth1 up
 ```
 
@@ -250,12 +251,29 @@ sudo ip netns exec ns1 ip link set lo up
 sudo ip netns exec ns2 ip link set lo up
 ```
 
-### 5. Test connectivity
+### 5. Set up the "router-side" interfaces
+### THIS PART FREEZES THE PI FOR SOME REASON?
+```sh
+sudo ip addr add 192.168.1.100/24 dev veth0-rtr
+sudo ip link set veth0-rtr up
+
+sudo ip addr add 192.168.2.100/24 dev veth1-rtr
+sudo ip link set veth1-rtr up
+```
+
+### 6. Set up forwarding rules
+Like we did in Part 2, make sure to delete the existing rule first (or do we not need to??).
+```sh
+sudo iptables -A FORWARD -i veth0-rtr -o veth1-rtr -j NFQUEUE --queue-num 0
+sudo iptables -A FORWARD -i veth1-rtr -o veth0-rtr -m state --state ESTABLISHED,RELATED -j NFQUEUE --queue-num 0
+```
+
+### 7. Test connectivity
 ```sh
 sudo ip netns exec ns1 ping -c 3 192.168.1.2
 ```
 
-### 6. Use `iperf3` for throughput test
+### 8. Use `iperf3` for throughput test
 ```sh
 sudo apt install iperf3
 ```
@@ -272,4 +290,4 @@ Run a client from `ns1`:
 sudo ip netns exec ns1 iperf3 -c 192.168.1.2
 ```
 
-## THIS ISN'T WORKING PROPERLY YET. The veths are able to connect to each other without the router implementation running.
+## THIS PART ISN'T WORKING PROPERLY YET

@@ -30,7 +30,7 @@ sudo ip netns exec ns2 ip link set lo up
 
 # 5. Update default routes in namespaces
 sudo ip netns exec ns1 ip route add default via 192.168.1.100 dev veth0
-sudo ip netns exec ns2 ip route add default via 192.168.2.100 dev veth1
+#sudo ip netns exec ns2 ip route add default via 192.168.2.100 dev veth1 #not needed maybe?
 
 # 6. Set up forwarding rules
 sudo ip netns exec router iptables -A FORWARD -i veth0-rtr -o veth1-rtr -j NFQUEUE --queue-num 0

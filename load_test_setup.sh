@@ -34,4 +34,4 @@ sudo ip netns exec ns1 ip route add default via 192.168.1.100 dev veth0
 
 # 6. Set up forwarding rules
 sudo ip netns exec router iptables -A FORWARD -i veth0-rtr -o veth1-rtr -j NFQUEUE --queue-num 0
-sudo ip netns exec router iptables -A FORWARD -i veth1-rtr -o veth0-rtr -m state --state ESTABLISHED,RELATED -j NFQUEUE --queue-num 0
+sudo ip netns exec router iptables -A FORWARD -i veth1-rtr -o veth0-rtr -m state --state ESTABLISHED,RELATED -j ACCEPT #NFQUEUE --queue-num 0

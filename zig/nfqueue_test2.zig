@@ -134,6 +134,9 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
 
     // Re-inject the packet back into the kernel
     return netfilter.nfq_set_verdict(queue, id, netfilter.NF_ACCEPT, 0, null);
+    //const verdict_result = netfilter.nfq_set_verdict(queue, id, netfilter.NF_REPEAT, @as(u32, @intCast(payload_len)), payload);
+    //std.debug.print("Verdict result: {}\n", .{verdict_result});
+    //return verdict_result;
 }
 
 pub fn main() !void {

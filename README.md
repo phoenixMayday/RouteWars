@@ -217,11 +217,12 @@ N/A
 # Part 4: Load-Testing the Router
 
 ### 1. Create Network Namespaces
+Two outside of the router, one for the router
 ```sh
 sudo ip netns add ns1
 sudo ip netns add ns2
+sudo ip netns add router
 ```
-
 ### 2. Create virtual ethernet (veth) pairs
 
 A veth pair is like a virtual network cable connecting two interfaces. We need to make a pair for each interface we want to simulate, i.e. one to represent `wlan0` and one to represent `eth0`.
@@ -230,19 +231,26 @@ sudo ip link add veth0 type veth peer name veth0-rtr
 sudo ip link add veth1 type veth peer name veth1-rtr
 ```
 
-### 3. Assign each end of the veth pair to a namespace
+### 3. Assign the veths to namespaces
+Make two namespaces
 ```sh
 sudo ip link set veth0 netns ns1
 sudo ip link set veth1 netns ns2
-```
 
+sudo ip link set veth0-rtr netns router
+sudo ip link set veth1-rtr netns router
+```
 ### 4. Assign IPs and bring up interfaces
 ```sh
 sudo ip netns exec ns1 ip addr add 192.168.1.1/24 dev veth0
-sudo ip netns exec ns1 ip link set veth0 up
-
 sudo ip netns exec ns2 ip addr add 192.168.2.1/24 dev veth1
+sudo ip netns exec router ip addr add 192.168.1.100/24 dev veth0-rtr
+sudo ip netns exec router ip addr add 192.168.2.100/24 dev veth1-rtr
+
+sudo ip netns exec ns1 ip link set veth0 up
 sudo ip netns exec ns2 ip link set veth1 up
+sudo ip netns exec router ip link set veth0-rtr up
+sudo ip netns exec router ip link set veth1-rtr up
 ```
 
 Also, enable the loopback interface inside each namespace:
@@ -251,29 +259,30 @@ sudo ip netns exec ns1 ip link set lo up
 sudo ip netns exec ns2 ip link set lo up
 ```
 
-### 5. Set up the "router-side" interfaces
-### THIS PART FREEZES THE PI FOR SOME REASON?
+### 5. Update default routes in namespaces
+Ensure that the default routes in `ns1` and `ns2` point to the `router` namespace:
 ```sh
-sudo ip addr add 192.168.1.100/24 dev veth0-rtr
-sudo ip link set veth0-rtr up
-
-sudo ip addr add 192.168.2.100/24 dev veth1-rtr
-sudo ip link set veth1-rtr up
+sudo ip netns exec ns1 ip route add default via 192.168.1.100 dev veth0
+sudo ip netns exec ns2 ip route add default via 192.168.2.100 dev veth1
 ```
 
 ### 6. Set up forwarding rules
-Like we did in Part 2, make sure to delete the existing rule first (or do we not need to??).
 ```sh
-sudo iptables -A FORWARD -i veth0-rtr -o veth1-rtr -j NFQUEUE --queue-num 0
-sudo iptables -A FORWARD -i veth1-rtr -o veth0-rtr -m state --state ESTABLISHED,RELATED -j NFQUEUE --queue-num 0
+sudo ip netns exec router iptables -A FORWARD -i veth0-rtr -o veth1-rtr -j NFQUEUE --queue-num 0
+sudo ip netns exec router iptables -A FORWARD -i veth1-rtr -o veth0-rtr -m state --state ESTABLISHED,RELATED -j NFQUEUE --queue-num 0
 ```
 
-### 7. Test connectivity
+### 7. Run the routing software inside router namespace
 ```sh
-sudo ip netns exec ns1 ping -c 3 192.168.1.2
+sudo ip netns exec router ./zig/nfqueue_test2
 ```
 
-### 8. Use `iperf3` for throughput test
+### 8. Test connectivity
+```sh
+sudo ip netns exec ns1 ping -c 3 192.168.2.1
+```
+
+### 9. Use `iperf3` for throughput test
 ```sh
 sudo apt install iperf3
 ```
@@ -287,7 +296,5 @@ sudo ip netns exec ns2 iperf3 -s
 
 Run a client from `ns1`:
 ```sh
-sudo ip netns exec ns1 iperf3 -c 192.168.1.2
+sudo ip netns exec ns1 iperf3 -c 192.168.2.1
 ```
-
-## THIS PART ISN'T WORKING PROPERLY YET

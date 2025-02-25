@@ -6,3 +6,6 @@ router.log
 */nfqueue_test.o
 */nfqueue_test2
 */nfqueue_test2.o
+*/nfqueue_minimal
+*/nfqueue_minimal.o
+

@@ -8,4 +8,4 @@ router.log
 */nfqueue_test2.o
 */nfqueue_minimal
 */nfqueue_minimal.o
-
+*/nfqueue_accept_all

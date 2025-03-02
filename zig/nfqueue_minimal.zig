@@ -25,7 +25,8 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
     payload_len = netfilter.nfq_get_payload(nfad, &payload);
     std.debug.print("Packet received (id: {}, length: {} bytes)\n", .{ id, payload_len });
 
-    return netfilter.nfq_set_verdict(queue, id, netfilter.NF_ACCEPT, 0, null);
+    //return netfilter.nfq_set_verdict(queue, id, netfilter.NF_ACCEPT, 0, null);
+    return netfilter.nfq_set_verdict(queue, id, netfilter.NF_REPEAT, 0, null);
 }
 
 pub fn main() !void {

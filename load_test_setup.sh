@@ -22,4 +22,7 @@ sudo ip netns exec ns1 ip link set lo up
 sudo ip netns exec ns2 ip link set lo up
 
 # 5. Set up input rule
-sudo ip netns exec ns2 iptables -A INPUT -j NFQUEUE --queue-num 0 
+sudo ip netns exec ns2 iptables -A INPUT -j NFQUEUE --queue-num 0
+sudo ip netns exec ns2 iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+sudo ip netns exec ns2 iptables -A INPUT -j DROP
+sudo ip netns exec ns2 iptables -A OUTPUT -j DROP

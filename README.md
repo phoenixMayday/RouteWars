@@ -153,18 +153,23 @@ sudo apt install libnetfilter-queue-dev
 
 ### 2. Direct packets to NFQUEUE
 
-Let's first remove the forwarding rules we set up in part 1:
+Let's first remove the first forward rule we set up in part 1:
 ```sh
 sudo iptables -D FORWARD -i wlan0 -o eth0 -j ACCEPT
 sudo iptables -D FORWARD -i eth0 -o wlan0 -m state --state ESTABLISHED,RELATED -j ACCEPT
 ```
 
-We can keep the MASQUERADE rule for now, though we can manually implement that logic later.
+We can keep the `eth0 -> wlan0` FORWARD rule and the MASQUERADE rule for now, though we can manually implement for those later.
 
-Let's set up another forwarding rule from `wlan0` to `eth0` but this time we're directing packets to the NFQUEUE target for processing.
+Let's set up another forwarding rule from `wlan0` to `eth0` but this time we're directing packets to the NFQUEUE target for processing:
 ```sh
 sudo iptables -A FORWARD -i wlan0 -o eth0 -j NFQUEUE --queue-num 0
-sudo iptables -A FORWARD -i eth0 -o wlan0 -m state --state ESTABLISHED,RELATED -j NFQUEUE --queue-num 0
+```
+
+We should probably make sure packets are dropped if they aren't processed by the NFQUEUE target:
+```sh
+sudo iptables -A FORWARD -i wlan0 -o eth0 -j DROP
+sudo iptables -A FORWARD -i eth0 -o wlan0 -m state --state ESTABLISHED,RELATED -j DROP
 ```
 
 and of course save whenever you want the changes to be persistent:
@@ -221,6 +226,7 @@ N/A
 sudo ip netns add ns1
 sudo ip netns add ns2
 ```
+
 ### 2. Create virtual ethernet (veth) pairs
 A veth pair is like a virtual network cable connecting two interfaces
 ```sh
@@ -232,6 +238,7 @@ sudo ip link add veth0 type veth peer name veth1
 sudo ip link set veth0 netns ns1
 sudo ip link set veth1 netns ns2
 ```
+
 ### 4. Assign IPs and bring up interfaces
 ```sh
 sudo ip netns exec ns1 ip addr add 192.168.1.1/24 dev veth0
@@ -251,6 +258,9 @@ sudo ip netns exec ns2 ip link set lo up
 Inputting into veth1 simulates forwarding from veth0
 ```sh
 sudo ip netns exec ns2 iptables -A INPUT -j NFQUEUE --queue-num 0
+sudo ip netns exec ns2 iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+sudo ip netns exec ns2 iptables -A INPUT -j DROP
+sudo ip netns exec ns2 iptables -A OUTPUT -j DROP
 ```
 
 ### 6. Run the routing software inside router namespace

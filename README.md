@@ -265,7 +265,7 @@ sudo ip netns exec ns2 iptables -A OUTPUT -j DROP
 
 ### 6. Run the routing software inside router namespace
 ```sh
-sudo ip netns exec router ./zig/nfqueue_minimal
+sudo ip netns exec ns2 ./zig/nfqueue_minimal
 ```
 
 ### 7. Test connectivity

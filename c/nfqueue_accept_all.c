@@ -20,7 +20,7 @@ static int callback(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     }
     
     // Print a message when packet is being handled
-    //printf("Packet handled (ID: %u)\n", id);
+    printf("Packet handled (ID: %u)\n", id);
 
     // Accept all packets
     return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);

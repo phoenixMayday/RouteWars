@@ -34,7 +34,7 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
         std.debug.print("Error: Failed to get packet header\n", .{});
         return netfilter.NF_DROP;
     }
-    id = packet_hdr.*.packet_id; // Dereference the C pointer
+    id = std.mem.bigToNative(u32, packet_hdr.*.packet_id);
 
     payload_len = netfilter.nfq_get_payload(nfad, &payload);
 

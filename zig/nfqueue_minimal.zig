@@ -1,27 +1,30 @@
 const std = @import("std");
 const netfilter = @cImport({
     @cInclude("libnetfilter_queue/libnetfilter_queue.h");
-    @cInclude("netinet/in.h");
-    @cInclude("linux/types.h");
     @cInclude("linux/netfilter.h");
 });
 
-fn callback(qh: ?*netfilter.nfq_q_handle, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data, data: ?*anyopaque) callconv(.C) c_int {
+const QueueHandle = ?*netfilter.nfq_handle;
+const Queue = ?*netfilter.nfq_q_handle;
+
+fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data, data: ?*anyopaque) callconv(.C) c_int {
     _ = nfmsg;
     _ = data;
 
     var id: u32 = 0;
-    const ph = netfilter.nfq_get_msg_packet_hdr(nfa);
+    const packet_hdr = netfilter.nfq_get_msg_packet_hdr(nfa);
 
-    if (ph != null) {
-        id = std.mem.bigToNative(u32, ph.*.packet_id);
+    if (packet_hdr == null) {
+        std.debug.print("Error: Failed to get packet header\n", .{});
+        return netfilter.NF_DROP;
     }
+    id = std.mem.bigToNative(u32, packet_hdr.*.packet_id);
 
     // Print a message when packet is being handled
     std.debug.print("Packet handled (ID: {})\n", .{id});
 
     // Accept all packets
-    return netfilter.nfq_set_verdict(qh, id, netfilter.NF_ACCEPT, 0, null);
+    return netfilter.nfq_set_verdict(queue, id, netfilter.NF_ACCEPT, 0, null);
 }
 
 pub fn main() !void {

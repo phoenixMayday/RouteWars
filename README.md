@@ -156,7 +156,6 @@ sudo apt install libnetfilter-queue-dev
 Let's first remove the first forward rule we set up in part 1:
 ```sh
 sudo iptables -D FORWARD -i wlan0 -o eth0 -j ACCEPT
-sudo iptables -D FORWARD -i eth0 -o wlan0 -m state --state ESTABLISHED,RELATED -j ACCEPT
 ```
 
 We can keep the `eth0 -> wlan0` FORWARD rule and the MASQUERADE rule for now, though we can manually implement for those later.

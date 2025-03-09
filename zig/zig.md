@@ -1,4 +1,4 @@
-# Experiment 1: [`nfqueue_test.zig`](nfqueue_test.zig)
+# Experiment 1: [`nfq_thread_everything.zig`](nfq_thread_everything.zig)
 
 As Zig is interoperable with C, we can use libnetfilter_queue C library to interface with the NFQUEUE that we set up with iptables.
 
@@ -13,7 +13,7 @@ In this first test, the only "processing" we're doing is spawning a new thread a
 
 Can build executable by running
 ```sh
-zig build-exe nfqueue_test.zig -lnetfilter_queue -lc
+zig build-exe nfq_thread_everything.zig -lnetfilter_queue -lc
 ```
 in the `zig/` directory.
 ### Results:
@@ -21,7 +21,7 @@ in the `zig/` directory.
 
 An end user device can successfully access the internet through the router, and the packets are indeed printed on the screen. However, in less than a minute, the device stops being able to access the internet and nothing more is printed by the program. Since we're spawning a new thread (an OS-level thread too, not a lightweight one) for each packet, the Pi is probably getting overloaded and freezing up.
 
-# Experiment 2: [`nfqueue_test2.zig`](nfqueue_test2.zig)
+# Experiment 2: [`nfq_worker_threads.zig`](nfq_worker_threads.zig)
 
 Modifies the first experiment.
 - Adds a pool of worker threads to handle the packets instead of spawning a new thread for each packet
@@ -29,6 +29,6 @@ Modifies the first experiment.
 
 Can build executable by running
 ```sh
-zig build-exe nfqueue_test2.zig -lnetfilter_queue -lc
+zig build-exe nfq_worker_threads.zig -lnetfilter_queue -lc
 ```
 in the `zig/` directory.

@@ -8,43 +8,10 @@ const netinet = @cImport({
     @cInclude("netinet/tcp.h");
     @cInclude("netinet/udp.h");
 });
-const qname = @import("qname.zig");
+const dns = @import("dns.zig");
 
 const QueueHandle = ?*netfilter.nfq_handle;
 const Queue = ?*netfilter.nfq_q_handle;
-
-// manually define netinet ip header as we cannot access the C one
-pub const ip = extern struct {
-    ip_vhl: u8,
-    ip_tos: u8,
-    ip_len: u16,
-    ip_id: u16,
-    ip_off: u16,
-    ip_ttl: u8,
-    ip_p: u8,
-    ip_sum: u16,
-    ip_src: u32,
-    ip_dst: u32,
-};
-
-pub const udphdr = extern struct {
-    uh_sport: u16, // Source port
-    uh_dport: u16, // Destination port
-    uh_ulen: u16, // UDP length
-    uh_sum: u16, // UDP checksum
-};
-
-pub const tcphdr = extern struct {
-    th_sport: u16, // Source port
-    th_dport: u16, // Destination port
-    th_seq: u32, // Sequence number
-    th_ack: u32, // Acknowledgment number
-    th_off: u8, // Data offset (4 bits) + reserved (4 bits)
-    th_flags: u8, // Flags
-    th_win: u16, // Window size
-    th_sum: u16, // Checksum
-    th_urp: u16, // Urgent pointer
-};
 
 fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data, data: ?*anyopaque) callconv(.C) c_int {
     _ = nfmsg;
@@ -70,7 +37,7 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
     }
 
     // Check the IP protocol
-    const ip_header: *const ip = @ptrCast(@alignCast(payload));
+    const ip_header: *const dns.ip = @ptrCast(@alignCast(payload));
     const ip_header_len = (ip_header.ip_vhl & 0x0F) << 2; //ip_header.ip_hl << 2;
     const transport_payload: []u8 = payload[ip_header_len..@intCast(payload_len)];
 
@@ -97,10 +64,10 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
 
 // Function to handle UDP DNS packets
 pub fn handleUdpDns(payload: []const u8) ?[]const u8 {
-    const dns_payload = payload[@sizeOf(udphdr)..];
+    const dns_payload = payload[@sizeOf(dns.udphdr)..];
 
     // Decode the QNAME
-    const qname_result = qname.decodeQname(dns_payload, 12) catch {
+    const qname_result = dns.decodeQname(dns_payload, 12) catch {
         std.debug.print("Error: Failed to decode QNAME (UDP)\n", .{});
         return null;
     };
@@ -110,7 +77,7 @@ pub fn handleUdpDns(payload: []const u8) ?[]const u8 {
 
 // Function to handle TCP DNS packets
 pub fn handleTcpDns(payload: []const u8) ?[]const u8 {
-    const tcp_header: *const tcphdr = @ptrCast(@alignCast(payload));
+    const tcp_header: *const dns.tcphdr = @ptrCast(@alignCast(payload));
     const tcp_header_len = (tcp_header.th_off >> 4) * 4; // extract 4-bit offset and multiply by 4 to get length in bytes
 
     //std.debug.print("TCP Header Length: {}\n", .{tcp_header_len});
@@ -141,7 +108,7 @@ pub fn handleTcpDns(payload: []const u8) ?[]const u8 {
     }
 
     // Decode the QNAME
-    const qname_result = qname.decodeQname(dns_payload, 12) catch {
+    const qname_result = dns.decodeQname(dns_payload, 12) catch {
         std.debug.print("Error: Failed to decode QNAME (TCP)\n", .{});
         return null;
     };

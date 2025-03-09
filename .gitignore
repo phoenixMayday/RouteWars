@@ -3,8 +3,4 @@ env/
 router.log
 
 *.o
-*/nfqueue_test
-*/nfqueue_test2
-*/nfqueue_minimal
-*/nfqueue_accept_all
-*/nfqueue_minimal_qname
+*/nfq_*

@@ -1,5 +1,38 @@
 const std = @import("std");
 
+// manually define netinet ip header as we cannot access the C one
+pub const ip = extern struct {
+    ip_vhl: u8,
+    ip_tos: u8,
+    ip_len: u16,
+    ip_id: u16,
+    ip_off: u16,
+    ip_ttl: u8,
+    ip_p: u8,
+    ip_sum: u16,
+    ip_src: u32,
+    ip_dst: u32,
+};
+
+pub const udphdr = extern struct {
+    uh_sport: u16, // Source port
+    uh_dport: u16, // Destination port
+    uh_ulen: u16, // UDP length
+    uh_sum: u16, // UDP checksum
+};
+
+pub const tcphdr = extern struct {
+    th_sport: u16, // Source port
+    th_dport: u16, // Destination port
+    th_seq: u32, // Sequence number
+    th_ack: u32, // Acknowledgment number
+    th_off: u8, // Data offset (4 bits) + reserved (4 bits)
+    th_flags: u8, // Flags
+    th_win: u16, // Window size
+    th_sum: u16, // Checksum
+    th_urp: u16, // Urgent pointer
+};
+
 // decode QNAME from DNS packet
 pub fn decodeQname(packet: []const u8, offset: usize) !struct { name: []const u8, new_offset: usize } {
     var name = std.ArrayList(u8).init(std.heap.c_allocator);

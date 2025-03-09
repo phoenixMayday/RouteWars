@@ -264,7 +264,7 @@ sudo ip netns exec ns2 iptables -A OUTPUT -j DROP
 
 ### 6. Run the routing software inside router namespace
 ```sh
-sudo ip netns exec ns2 ./zig/nfqueue_minimal
+sudo ip netns exec ns2 ./zig/nfq_accept_all
 ```
 
 ### 7. Test connectivity
@@ -287,4 +287,54 @@ sudo ip netns exec ns2 iperf3 -s
 Run a client from `ns1`:
 ```sh
 sudo ip netns exec ns1 iperf3 -c 192.168.1.2
+```
+
+# Part 5: Testing with DNS Packets
+
+### 1. DNS server with `dnsmasq`
+Let's use `dnsmasq` to host a DNS server in `ns2`
+```sh
+sudo apt install dnsmasq
+```
+
+Make a conf file for the DNS server:
+```sh
+sudo mkdir -p /etc/dnsmasq-ns2
+sudo nano /etc/dnsmasq-ns2/dnsmasq.conf
+```
+and put:
+```ini
+# listen on specific ip address in ns2
+listen-address=192.168.1.2
+
+# bind explicitly to interfaces in namespace (ns2)
+bind-interfaces
+
+# disable dns forwarding
+no-resolv
+
+# add custom record for testing
+address=/example.com/192.168.1.100
+```
+This is a configuration of a very basic DNS server we'll use just for benchmarking.
+
+Now start `dnsmasq` in `ns2` with:
+```sh
+sudo ip netns exec ns2 dnsmasq --conf-file=/etc/dnsmasq-ns2/dnsmasq.conf --no-daemon
+```
+
+### 2. DNS client with `dnsperf`
+Let's use `dnsperf` to benchmark the router with DNS packets
+```sh
+sudo apt install dnsperf
+```
+
+We need to specify a list of DNS queries for `dnsperf` by making a file of domain names followed by the type of request. Let's just start with one simple address record for now:
+```sh
+echo "example.com A" > queries.txt
+```
+
+Now run `dnsperf` in `ns1` like so:
+```sh
+sudo ip netns exec ns1 dnsperf -s 192.168.1.2 -d queries.txt
 ```

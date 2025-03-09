@@ -4,3 +4,5 @@ router.log
 
 *.o
 */nfq_*
+!nfq_*.zig
+!nfq_*.c

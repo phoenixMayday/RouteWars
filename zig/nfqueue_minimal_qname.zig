@@ -13,6 +13,39 @@ const qname = @import("qname.zig");
 const QueueHandle = ?*netfilter.nfq_handle;
 const Queue = ?*netfilter.nfq_q_handle;
 
+// manually define netinet ip header as we cannot access the C one
+pub const ip = extern struct {
+    ip_vhl: u8,
+    ip_tos: u8,
+    ip_len: u16,
+    ip_id: u16,
+    ip_off: u16,
+    ip_ttl: u8,
+    ip_p: u8,
+    ip_sum: u16,
+    ip_src: u32,
+    ip_dst: u32,
+};
+
+pub const udphdr = extern struct {
+    uh_sport: u16, // Source port
+    uh_dport: u16, // Destination port
+    uh_ulen: u16, // UDP length
+    uh_sum: u16, // UDP checksum
+};
+
+pub const tcphdr = extern struct {
+    th_sport: u16, // Source port
+    th_dport: u16, // Destination port
+    th_seq: u32, // Sequence number
+    th_ack: u32, // Acknowledgment number
+    th_off: u8, // Data offset (4 bits) + reserved (4 bits)
+    th_flags: u8, // Flags
+    th_win: u16, // Window size
+    th_sum: u16, // Checksum
+    th_urp: u16, // Urgent pointer
+};
+
 fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data, data: ?*anyopaque) callconv(.C) c_int {
     _ = nfmsg;
     _ = data;
@@ -37,12 +70,13 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
     }
 
     // Check the IP protocol
-    const ip_header: *const netinet.ip = @ptrCast(payload);
-    const ip_header_len = ip_header.ip_hl << 2;
-    const transport_payload: usize = payload[ip_header_len..@intCast(payload_len)];
+    const ip_header: *const ip = @ptrCast(@alignCast(payload));
+    const ip_header_len = (ip_header.ip_vhl & 0x0F) << 2; //ip_header.ip_hl << 2;
+    const transport_payload: []u8 = payload[ip_header_len..@intCast(payload_len)];
 
     // UDP DNS
     if (ip_header.ip_p == netinet.IPPROTO_UDP) {
+        //std.debug.print("UDP DNS Packet detected!\n", .{});
         const domain = handleUdpDns(transport_payload);
         if (domain) |d| {
             std.debug.print("UDP DNS Packet handled (ID: {}), Domain: {s}\n", .{ id, d });
@@ -50,9 +84,10 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
     }
     // TCP DNS
     else if (ip_header.ip_p == netinet.IPPROTO_TCP) {
+        //std.debug.print("TCP DNS Packet detected!\n", .{});
         const domain = handleTcpDns(transport_payload);
         if (domain) |d| {
-            std.debug.print("TCP DNS Packet handled (ID: {}), Domain: {s}\n", .{ id, d });
+            std.debug.print("2TCP DNS Packet handled (ID: {}), Domain: {s}\n", .{ id, d });
         }
     }
 
@@ -62,7 +97,7 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
 
 // Function to handle UDP DNS packets
 pub fn handleUdpDns(payload: []const u8) ?[]const u8 {
-    const dns_payload = payload[@sizeOf(std.c.udphdr)..];
+    const dns_payload = payload[@sizeOf(udphdr)..];
 
     // Decode the QNAME
     const qname_result = qname.decodeQname(dns_payload, 12) catch {
@@ -75,15 +110,43 @@ pub fn handleUdpDns(payload: []const u8) ?[]const u8 {
 
 // Function to handle TCP DNS packets
 pub fn handleTcpDns(payload: []const u8) ?[]const u8 {
-    const tcp_header: *const std.c.tcphdr = @ptrCast(payload);
-    const tcp_header_len = tcp_header.th_off << 2;
-    const dns_payload = payload[tcp_header_len + 2 ..]; // Skip TCP header and 2-byte length field
+    const tcp_header: *const tcphdr = @ptrCast(@alignCast(payload));
+    const tcp_header_len = (tcp_header.th_off >> 4) * 4; // extract 4-bit offset and multiply by 4 to get length in bytes
+
+    //std.debug.print("TCP Header Length: {}\n", .{tcp_header_len});
+    //std.debug.print("Payload Length: {}\n", .{payload.len});
+    std.debug.print("Payload: {any}\n", .{payload});
+
+    if (tcp_header_len > payload.len) {
+        std.debug.print("Error: TCP header length exceeds payload length\n", .{});
+        return null;
+    }
+
+    // Skip TCP header and 2-byte length field
+    const dns_payload_with_length = payload[tcp_header_len..];
+    if (dns_payload_with_length.len < 2) {
+        std.debug.print("Error: DNS payload with length field is too short\n", .{});
+        return null;
+    }
+
+    // Extract the DNS message length (first 2 bytes)
+    const dns_payload = dns_payload_with_length[2..];
+    //const dns_message_len = std.mem.bigToNative(u16, @as(*const u16, @as(*const u16, @alignCast(@ptrCast(dns_payload_with_length[0..2].ptr)))).*);
+    //std.debug.print("DNS Message Length: {}\n", .{dns_message_len});
+    //std.debug.print("DNS Payload Length: {}\n", .{dns_payload.len});
+
+    if (dns_payload.len == 0) {
+        std.debug.print("Error: DNS payload is empty\n", .{});
+        return null;
+    }
 
     // Decode the QNAME
     const qname_result = qname.decodeQname(dns_payload, 12) catch {
         std.debug.print("Error: Failed to decode QNAME (TCP)\n", .{});
         return null;
     };
+
+    std.debug.print("TCP DNS Packet handled, Domain: {s}\n", .{qname_result.name});
 
     return qname_result.name;
 }

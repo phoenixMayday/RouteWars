@@ -34,34 +34,23 @@ pub const tcphdr = extern struct {
 };
 
 // decode QNAME from DNS packet
-pub fn decodeQname(packet: []const u8, offset: usize) !struct { name: []const u8, new_offset: usize } {
-    var name = std.ArrayList(u8).init(std.heap.c_allocator);
-    defer name.deinit();
+pub fn decodeQname(payload: []const u8, buffer: []u8) ![]const u8 {
+    var index: usize = 12; // skip the DNS header (12 bytes)
+    var bufferIndex: usize = 0;
 
-    var current_offset = offset;
-    var length = packet[current_offset];
-
-    while (length != 0) {
-        if (length & 0xC0 == 0xC0) {
-            // Handle DNS name compression (pointer)
-            const pointer_offset = ((@as(u16, length) & 0x3F) << 8) | @as(u16, packet[current_offset + 1]);
-            const result = try decodeQname(packet, pointer_offset);
-            try name.appendSlice(result.name);
-            current_offset += 2;
-            return .{ .name = name.items, .new_offset = current_offset };
+    while (true) {
+        const length = payload[index];
+        if (length == 0) break; // end of QNAME
+        if (bufferIndex > 0) {
+            buffer[bufferIndex] = '.';
+            bufferIndex += 1;
         }
-
-        // Append the label to the name
-        try name.appendSlice(packet[current_offset + 1 .. current_offset + 1 + length]);
-        try name.append('.');
-        current_offset += 1 + length;
-        length = packet[current_offset];
+        index += 1;
+        for (0..length) |_| {
+            buffer[bufferIndex] = payload[index];
+            bufferIndex += 1;
+            index += 1;
+        }
     }
-
-    // Remove the trailing dot
-    if (name.items.len > 0 and name.items[name.items.len - 1] == '.') {
-        _ = name.pop();
-    }
-
-    return .{ .name = name.items, .new_offset = current_offset + 1 };
+    return buffer[0..bufferIndex];
 }

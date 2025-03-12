@@ -39,13 +39,24 @@ pub fn decodeQname(payload: []const u8, buffer: []u8) ![]const u8 {
     var bufferIndex: usize = 0;
 
     while (true) {
-        const length = payload[index];
+        if (index >= payload.len) {
+            return error.InvalidPacket; // prevent out-of-bounds access
+        }
+
+        const length = payload[index]; // length of each label, e.g., [3]www[7]example[3]com[0]
         if (length == 0) break; // end of QNAME
+
+        // check if adding the length and '.' would exceed buffer size
+        if (bufferIndex + length + 1 > buffer.len) {
+            return error.BufferOverflow;
+        }
+
         if (bufferIndex > 0) {
             buffer[bufferIndex] = '.';
             bufferIndex += 1;
         }
         index += 1;
+
         for (0..length) |_| {
             buffer[bufferIndex] = payload[index];
             bufferIndex += 1;

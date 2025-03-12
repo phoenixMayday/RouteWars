@@ -297,6 +297,11 @@ Let's use `dnsmasq` to host a DNS server in `ns2`
 sudo apt install dnsmasq
 ```
 
+Disable the systemd service to stop it automatically managing DHCP or DNS on boot (it interferes with the `nmcli` hotspot)
+```sh
+sudo systemctl disable --now dnsmasq
+```
+
 Make a conf file for the DNS server:
 ```sh
 sudo mkdir -p /etc/dnsmasq-ns2
@@ -313,8 +318,8 @@ bind-interfaces
 # disable dns forwarding
 no-resolv
 
-# add custom record for testing
-address=/example.com/192.168.1.100
+# add wildcard record for testing. will respond to all domain queries with this ip
+address=/#/192.168.1.100
 ```
 This is a configuration of a very basic DNS server we'll use just for benchmarking.
 
@@ -331,7 +336,7 @@ sudo apt install dnsperf
 
 We need to specify a list of DNS queries for `dnsperf` by making a file of domain names followed by the type of request. Let's just start with one simple address record for now:
 ```sh
-echo "example.com A" > queries.txt
+echo -e "example.com A\nexample.net A\nexample.org A\nexample.edu A\nexample.gov A" > queries.txt
 ```
 
 Now run `dnsperf` in `ns1` like so:

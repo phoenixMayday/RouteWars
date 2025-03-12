@@ -1,1 +1,5 @@
 example.com A
+example.net A
+example.org A
+example.edu A
+example.gov A

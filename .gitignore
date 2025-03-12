@@ -6,3 +6,12 @@ router.log
 */nfq_*
 !nfq_*.zig
 !nfq_*.c
+
+# Zig build artifacts
+.zig-cache/
+zig-out/
+/release/
+/debug/
+/build/
+/build-*/
+/docgen_tmp/

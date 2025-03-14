@@ -38,10 +38,23 @@ in the `zig/` directory.
 
 In `zig/`:
 ```sh
-sudo /opt/zig/zig build -Dmain-file=src/nfq_accept_all_qname.zig -Dignore-dns=0 -Dlog-mode=io-prints run
+sudo /opt/zig/zig build -Dmain-file=src/nfq_accept_all_qname.zig -Dignore-dns=95 -Dlog-mode=io-prints run
 ```
 
 For running it in `ns2`:
 ```sh
-sudo ip netns exec ns2 /opt/zig/zig build -Dmain-file=src/nfq_accept_all_qname.zig -Dignore-dns=0 -Dlog-mode=io-prints run
+sudo ip netns exec ns2 /opt/zig/zig build -Dmain-file=src/nfq_accept_all_qname.zig -Dignore-dns=95 -Dlog-mode=io-prints run
+```
+
+
+# Experiment 4: [`nfq_dns_filter.zig`](src/nfq_dns_filter.zig)
+
+In `zig/`:
+```sh
+sudo /opt/zig/zig build -Dmain-file=src/nfq_dns_filter.zig -Dignore-dns=95 -Dlog-mode=io-prints run -- ../blocklist.txt
+```
+
+For running it in `ns2`:
+```sh
+sudo ip netns exec ns2 /opt/zig/zig build -Dmain-file=src/nfq_dns_filter.zig -Dignore-dns=95 -Dlog-mode=io-prints run -- ../blocklist.txt
 ```

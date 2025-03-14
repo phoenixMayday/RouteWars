@@ -32,11 +32,17 @@ pub fn log(comptime fmt: []const u8, args: anytype) void {
         },
         .IOLogging => {
             // log to a file
-            const file = std.fs.cwd().createFile("log.txt", .{ .append = true }) catch |err| {
+            const file = std.fs.cwd().createFile("log.txt", .{ .truncate = false }) catch |err| {
                 std.debug.print("Failed to open log file: {}\n", .{err});
                 return;
             };
             defer file.close();
+
+            // go to end of the file
+            file.seekFromEnd(0) catch |err| {
+                std.debug.print("Failed to seek to end of log file: {}\n", .{err});
+                return;
+            };
 
             file.writer().print(fmt, args) catch |err| {
                 std.debug.print("Failed to write to log file: {}\n", .{err});

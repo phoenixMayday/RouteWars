@@ -6,6 +6,7 @@ router.log
 */nfq_*
 !nfq_*.zig
 !nfq_*.c
+log.txt
 
 # Zig build artifacts
 .zig-cache/

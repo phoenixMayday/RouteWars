@@ -6,6 +6,7 @@ const netfilter = @cImport({
     @cInclude("libnetfilter_queue/libnetfilter_queue.h");
     @cInclude("linux/netfilter.h");
 });
+const logger = @import("logger.zig");
 
 // nfq_handle represents a connection to the Netfilter queue subsystem
 // You'd use this handle for opening/closing opening a connection to the queue
@@ -31,7 +32,7 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
     // Dereference the pointer to access the packet header
     const packet_hdr = netfilter.nfq_get_msg_packet_hdr(nfad);
     if (packet_hdr == null) {
-        std.debug.print("Error: Failed to get packet header\n", .{});
+        logger.log("Error: Failed to get packet header\n", .{});
         return netfilter.NF_DROP;
     }
     id = std.mem.bigToNative(u32, packet_hdr.*.packet_id);
@@ -39,16 +40,16 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
     payload_len = netfilter.nfq_get_payload(nfad, &payload);
 
     if (payload_len >= 0) {
-        std.debug.print("Packet received (id: {}, length: {} bytes)\n", .{ id, payload_len });
+        logger.log("Packet received (id: {}, length: {} bytes)\n", .{ id, payload_len });
 
         // Spawn a new thread to handle the packet concurrently
         const handle_packet = struct {
             fn handle(payload_ptr: [*c]u8, len: c_int) void {
                 // Print the first few bytes of the payload for demonstration
                 const max_bytes_to_print = @as(usize, @intCast(@min(len, 16))); // Convert to usize
-                std.debug.print("Packet processed (length: {} bytes). First {} bytes: ", .{ len, max_bytes_to_print });
+                logger.log("Packet processed (length: {} bytes). First {} bytes: ", .{ len, max_bytes_to_print });
                 for (0..max_bytes_to_print) |i| {
-                    std.debug.print("{x:0>2} ", .{payload_ptr[i]});
+                    logger.log("{x:0>2} ", .{payload_ptr[i]});
                 }
                 std.debug.print("\n", .{});
             }
@@ -58,7 +59,7 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
         if (std.Thread.spawn(.{}, handle_packet, .{ payload, payload_len })) |thread| {
             thread.detach();
         } else |_| { // Handle error
-            std.debug.print("Error: Failed to spawn thread\n", .{});
+            logger.log("Error: Failed to spawn thread\n", .{});
         }
     }
 
@@ -76,7 +77,7 @@ pub fn main() !void {
     // Open the netfilter queue
     h = netfilter.nfq_open();
     if (h == null) {
-        std.debug.print("Error during nfq_open()\n", .{});
+        logger.log("Error during nfq_open()\n", .{});
         return error.NfqOpenFailed;
     }
 
@@ -85,25 +86,25 @@ pub fn main() !void {
     // Unbind then re-bind Netfilter queue to AF_INET
     // AF_INET is the IPv4 protocol family, there's AF_INET6 and AF_UNIX for IPv6 and local comms
     if (netfilter.nfq_unbind_pf(h, netfilter.AF_INET) < 0) {
-        std.debug.print("Error during nfq_unbind_pf()\n", .{});
+        logger.log("Error during nfq_unbind_pf()\n", .{});
         return error.NfqUnbindFailed;
     }
     if (netfilter.nfq_bind_pf(h, netfilter.AF_INET) < 0) {
-        std.debug.print("Error during nfq_bind_pf()\n", .{});
+        logger.log("Error during nfq_bind_pf()\n", .{});
         return error.NfqBindFailed;
     }
 
     // Create new queue with the packet handling callback
     qh = netfilter.nfq_create_queue(h, 0, callback, null);
     if (qh == null) {
-        std.debug.print("Error during nfq_create_queue()\n", .{});
+        logger.log("Error during nfq_create_queue()\n", .{});
         return error.NfqCreateQueueFailed;
     }
     defer _ = netfilter.nfq_destroy_queue(qh);
 
     // Set queue mode to copy entire packet to user space
     if (netfilter.nfq_set_mode(qh, netfilter.NFQNL_COPY_PACKET, 0xffff) < 0) {
-        std.debug.print("Error during nfq_set_mode()\n", .{});
+        logger.log("Error during nfq_set_mode()\n", .{});
         return error.NfqSetModeFailed;
     }
 
@@ -117,7 +118,7 @@ pub fn main() !void {
         if (rv >= 0) {
             _ = netfilter.nfq_handle_packet(h, &buf, rv); // Discard the return value
         } else {
-            std.debug.print("Error during recv()\n", .{});
+            logger.log("Error during recv()\n", .{});
             break;
         }
     }

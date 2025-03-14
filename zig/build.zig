@@ -15,6 +15,9 @@ pub fn build(b: *std.Build) void {
     // Add custom option to specify main file
     const main_file_option = b.option([]const u8, "main-file", "Path to the Zig file containing the main function") orelse "src/main.zig";
 
+    // Add custom option for percentage of UDP DNS packets to ignore
+    const ignore_dns_option = b.option(u32, "ignore-dns", "Percentage of UDP DNS packets to ignore (0-100)") orelse 0;
+
     // Add custom option to specify log mode
     const log_mode_option = b.option([]const u8, "log-mode", "Log mode (no-io, io-prints, io-logging)") orelse "no-io";
 
@@ -36,6 +39,7 @@ pub fn build(b: *std.Build) void {
 
     // Add a compile-time constant for log mode
     const options = b.addOptions();
+    options.addOption(u32, "ignore_dns", ignore_dns_option);
     options.addOption([]const u8, "log_mode", log_mode_option);
 
     // Add options module to executable module

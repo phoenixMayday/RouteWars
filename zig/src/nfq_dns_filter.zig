@@ -11,10 +11,15 @@ const netinet = @cImport({
 const dns = @import("dns.zig");
 const logger = @import("logger.zig");
 
+const build_options = @import("build_options");
+
+var prng = std.Random.DefaultPrng.init(0);
+
 const QueueHandle = ?*netfilter.nfq_handle;
 const Queue = ?*netfilter.nfq_q_handle;
 
 var blocklist: std.ArrayList([]const u8) = undefined;
+var packet_counter: u32 = 0;
 
 fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data, data: ?*anyopaque) callconv(.C) c_int {
     _ = nfmsg;
@@ -46,29 +51,40 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
 
     // UDP DNS
     if (ip_header.ip_p == netinet.IPPROTO_UDP) {
-        const dns_payload = transport_payload[@sizeOf(dns.udphdr)..];
+        // Calculate whether to ignore this packet based on ignore_dns percentage
+        const ignore_dns = build_options.ignore_dns;
+        const should_ignore = prng.random().intRangeLessThan(u8, 0, 100) < ignore_dns;
+        packet_counter += 1;
 
-        // Decode the QNAME
-        var buffer: [256]u8 = undefined;
-        const qname = dns.decodeQname(dns_payload[0..], &buffer) catch |err| {
-            logger.log("Error decoding QNAME: {}\n", .{err});
-            return netfilter.nfq_set_verdict(queue, id, netfilter.NF_ACCEPT, 0, null);
-        };
+        if (!should_ignore) {
+            const dns_payload = transport_payload[@sizeOf(dns.udphdr)..];
 
-        logger.log("UDP DNS Packet handled (ID: {}), Domain: {s}\n", .{ id, qname });
+            // Decode the QNAME
+            var buffer: [256]u8 = undefined;
+            const qname = dns.decodeQname(dns_payload[0..], &buffer) catch |err| {
+                logger.log("Error decoding QNAME: {}\n", .{err});
+                return netfilter.nfq_set_verdict(queue, id, netfilter.NF_ACCEPT, 0, null);
+            };
 
-        // check if domain is in blocklist
-        for (blocklist.items) |domain| {
-            if (std.mem.eql(u8, qname, domain)) {
-                logger.log("Domain {s} is blocked. Dropping packet.\n", .{qname});
-                return netfilter.NF_DROP;
+            logger.log("UDP DNS packet handled (ID: {}), Domain: {s}\n", .{ id, qname });
+
+            // check if domain is in blocklist
+            for (blocklist.items) |domain| {
+                if (std.mem.eql(u8, qname, domain)) {
+                    logger.log("Domain {s} is blocked. Dropping packet.\n", .{qname});
+                    return netfilter.NF_DROP;
+                }
             }
+        } else {
+            logger.log("UDP DNS packet handled as data packet (ID: {}).\n", .{id});
         }
     }
     // TCP DNS
     else if (ip_header.ip_p == netinet.IPPROTO_TCP) {
         // Most DNS traffic is UDP so we won't implement this for now.
-        logger.log("TCP Packet handled (ID: {})\n", .{id});
+        logger.log("TCP packet handled (ID: {}).\n", .{id});
+    } else {
+        logger.log("Data packet handled (ID: {}).\n", .{id});
     }
 
     // Accept all packets

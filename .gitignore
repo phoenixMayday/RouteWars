@@ -6,6 +6,7 @@ router.log
 */nfq_*
 !nfq_*.zig
 !nfq_*.c
+!nfq_*.go
 
 log.txt
 perf.data

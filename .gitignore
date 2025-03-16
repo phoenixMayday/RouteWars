@@ -20,3 +20,6 @@ zig-out/
 /build/
 /build-*/
 /docgen_tmp/
+
+# Rust
+*/target/

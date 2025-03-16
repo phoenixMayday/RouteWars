@@ -1,6 +1,6 @@
 module nfq_go_router
 
-go 1.23.7
+go 1.24.1
 
 require (
 	github.com/florianl/go-nfqueue v1.3.2

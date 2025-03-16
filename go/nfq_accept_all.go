@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	//"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,6 +10,8 @@ import (
 
 	nfqueue "github.com/florianl/go-nfqueue"
     "github.com/mdlayher/netlink"
+
+    "nfq_go_router/logger"
 )
 
 var nf *nfqueue.Nfqueue
@@ -40,13 +42,13 @@ func callback(a nfqueue.Attribute) int {
 		    buffer := make([]byte, 256)
 		    qname, err := decodeQname(dnsPayload, buffer)
 		    if err != nil {
-			    fmt.Printf("Error decoding QNAME (ID: %d): %v\n", id, err)
+			    logger.Log("Error decoding QNAME (ID: %d): %v\n", id, err)
 		    } else {
-			    fmt.Printf("UDP DNS packet handled (ID: %d), Domain: %s\n", id, qname)
+			    logger.Log("UDP DNS packet handled (ID: %d), Domain: %s\n", id, qname)
 		    }
 	    } 
     } else {
-        fmt.Printf("Data packet handled (ID: %d)\n", id)
+        logger.Log("Data packet handled (ID: %d)\n", id)
     }
 
 	// Accept all packets
@@ -67,14 +69,14 @@ func main() {
 	var err error
     nf, err = nfqueue.Open(&config)
 	if err != nil {
-		fmt.Println("could not open nfqueue socket:", err)
+		logger.Log("could not open nfqueue socket:", err)
 		return
 	}
 	defer nf.Close()
 
     // Enable NoENOBUFS option -- get the error `netlink receive: recvmsg: no buffer space available` if not enabled
     if err := nf.SetOption(netlink.NoENOBUFS, true); err != nil {
-        fmt.Println("could not set NoENOBUFS option:", err)
+        logger.Log("could not set NoENOBUFS option:", err)
         return
     }
 
@@ -83,11 +85,11 @@ func main() {
 	defer cancel()
 
 	err = nf.RegisterWithErrorFunc(ctx, callback, func(e error) int {
-		fmt.Println("Error:", e)
+		logger.Log("Error:", e)
 		return -1
 	})
 	if err != nil {
-		fmt.Println("failed to register callback:", err)
+		logger.Log("failed to register callback:", err)
 		return
 	}
 
@@ -96,10 +98,10 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigChan
-		fmt.Println("Received interrupt signal, shutting down...")
+		logger.Log("Received interrupt signal, shutting down...")
 		cancel()
 	}()
 	
 	<-ctx.Done()
-	fmt.Println("Exiting...")
+	logger.Log("Exiting...")
 }

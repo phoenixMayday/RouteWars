@@ -209,11 +209,43 @@ sudo router_monitor.py
 ### Zig:
 [`zig/zig.md`](zig/zig.md)
 
+Build:
+```sh
+sudo /opt/zig/zig build -Dmain-file=src/nfq_dns_filter.zig -Dignore-dns=95 -Dlog-mode=io-prints
+```
+
+Run:
+```sh
+sudo ./zig-out/bin/zig_router ../benchmark/blocklist.txt
+```
+or
+```sh
+sudo ip netns exec ns2 /opt/zig/zig build -Dmain-file=src/nfq_dns_filter.zig -Dignore-dns=95 -Dlog-mode=io-prints run -- ../benchmark/blocklist.txt
+```
 ### Rust:
 N/A
 
+Build:
+```sh
+cargo build
+```
+
+Run:
+```sh
+sudo ip netns exec ns2 ./target/debug/nfq_rust_router
+```
+
 ### Go:
-N/A
+
+Build:
+```sh
+go build -tags ioprints -o nfq_go_router
+```
+
+Run:
+```sh
+sudo ip netns exec ns2 ./nfq_go_router
+```
 
 ### Gleam:
 N/A

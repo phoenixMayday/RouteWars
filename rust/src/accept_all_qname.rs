@@ -5,6 +5,9 @@ use pnet::packet::udp::UdpPacket;
 use pnet::packet::Packet;
 use std::io;
 
+mod dns;
+use dns::{decode_qname, DnsDecodeError};
+
 fn main() -> io::Result<()> {
     let mut queue = Queue::open()?;
     queue.bind(0)?;
@@ -26,6 +29,20 @@ fn main() -> io::Result<()> {
                         // Check if destination port is 53 (DNS)
                         if udp.get_destination() == 53 {
                             println!("UDP DNS packet handled.");
+
+                            // Decode DNS QNAME
+                            let mut qname_buffer = [0u8; 256]; // Adjust size as needed
+                            match decode_qname(udp.payload(), &mut qname_buffer) {
+                                Ok(len) => {
+                                    let qname = std::str::from_utf8(&qname_buffer[..len])
+                                        .unwrap_or("[invalid utf8]");
+                                    println!("DNS Query: {}", qname);
+                                }
+                                Err(e) => {
+                                    println!("Failed to decode DNS QNAME: {}", e);
+                                }
+                            }
+
                         } else {
                             println!("Data packet handled (UDP, non-DNS).");
                         }

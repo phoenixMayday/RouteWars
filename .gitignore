@@ -11,6 +11,7 @@ router.log
 log.txt
 perf.data
 perf.data.old
+*_output.txt
 
 # Zig build artifacts
 .zig-cache/

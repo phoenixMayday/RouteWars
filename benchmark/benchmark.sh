@@ -1,6 +1,10 @@
 #!/bin/bash
 
-ROUTER_EXECUTABLE="../zig/zig-out/bin/zig_router"
+#ROUTER_EXECUTABLE="../zig/zig-out/bin/zig_router"
+#ROUTER_EXECUTABLE="../go/nfq_go_router"
+#ROUTER_EXECUTABLE="../rust/target/debug/nfq_rust_router"
+ROUTER_EXECUTABLE="../rust/target/debug/accept_all"
+
 
 ROUTER_OUTPUT="router_output.txt"
 DNSPERF_OUTPUT="dnsperf_output.txt"
@@ -25,7 +29,7 @@ sleep 2
 
 # Use perf to monitor the router process
 echo "Starting perf stat to monitor the router..."
-sudo ip netns exec ns2 perf stat -p $ROUTER_PID -o $PERF_OUTPUT &
+sudo ip netns exec ns2 perf stat -p $ROUTER_PID -o $PERF_OUTPUT -e cycles,instructions,cache-references,cache-misses,branches,branch-misses,page-faults,context-switches,cpu-migrations,LLC-load-misses &
 
 # Record memory usage
 echo "Starting memory usage monitoring..."
@@ -41,7 +45,7 @@ done &
 
 # Run dnsperf benchmark
 echo "Starting dnsperf benchmark..."
-sudo ip netns exec ns1 dnsperf -s 192.168.1.2 -d ./queries.txt -n 1000000 > $DNSPERF_OUTPUT 2>&1
+sudo ip netns exec ns1 dnsperf -s 192.168.1.2 -d ./queries.txt -n 50 > $DNSPERF_OUTPUT 2>&1
 
 # Stop router implementation
 echo "Stopping router implementation..."

@@ -6,3 +6,11 @@ edition = "2024"
 [dependencies]
 nfq = "0.2.5"
 pnet = "0.35.0"
+
+[[bin]]
+name = "accept_all"
+path = "src/accept_all.rs"
+
+[[bin]]
+name = "accept_all_qname"
+path = "src/accept_all_qname.rs"

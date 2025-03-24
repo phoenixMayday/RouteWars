@@ -86,6 +86,19 @@ fn worker() void {
     }
 }
 
+fn receiverThread(fd: c_int, h: QueueHandle) void {
+    var buf: [4096]u8 = undefined;
+    while (true) {
+        const rv = @as(c_int, @intCast(std.c.recv(fd, &buf, buf.len, 0)));
+        if (rv >= 0) {
+            _ = netfilter.nfq_handle_packet(h, &buf, rv);
+        } else {
+            logger.log("Error during recv()\n", .{});
+            break;
+        }
+    }
+}
+
 // Function to handle the packets. Will be invoked when a packet is received by the queue
 fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_data, data: ?*anyopaque) callconv(.C) c_int {
     _ = nfmsg; // Unused parameter
@@ -144,8 +157,8 @@ pub fn main() !void {
     var h: QueueHandle = undefined; // queue subsystem handle
     var qh: Queue = undefined; // specific queue handle
     var fd: c_int = 0; // file descriptor for queue
-    var buf: [4096]u8 = undefined; // packet buffer
-    var rv: c_int = 0; // return value
+    //var buf: [4096]u8 = undefined; // packet buffer
+    //var rv: c_int = 0; // return value
 
     // Open the netfilter queue
     h = netfilter.nfq_open();
@@ -176,7 +189,7 @@ pub fn main() !void {
     defer _ = netfilter.nfq_destroy_queue(qh);
 
     // Set queue mode to copy entire packet to user space
-    if (netfilter.nfq_set_mode(qh, netfilter.NFQNL_COPY_PACKET, 0xffff) < 0) {
+    if (netfilter.nfq_set_mode(qh, netfilter.NFQNL_COPY_PACKET, 0x10000) < 0) {
         logger.log("Error during nfq_set_mode()\n", .{});
         return error.NfqSetModeFailed;
     }
@@ -204,15 +217,10 @@ pub fn main() !void {
         try thread_pool.append(thread);
     }
 
-    while (true) {
-        // Receive data from the queue
-        // Cast the return value of std.c.recv to c_int
-        rv = @as(c_int, @intCast(std.c.recv(fd, &buf, buf.len, 0)));
-        if (rv >= 0) {
-            _ = netfilter.nfq_handle_packet(h, &buf, rv); // Discard the return value
-        } else {
-            logger.log("Error during recv()\n", .{});
-            break;
-        }
+    const receiver = try std.Thread.spawn(.{}, receiverThread, .{ fd, h });
+    defer receiver.join();
+
+    while (!shutdown) {
+        std.time.sleep(1_000_000_000); // Sleep for 1 second
     }
 }

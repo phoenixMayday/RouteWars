@@ -12,6 +12,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitflags"
+version = "2.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
+
+[[package]]
 name = "glob"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -53,6 +59,7 @@ version = "0.1.0"
 dependencies = [
  "nfq",
  "pnet",
+ "simple-dns",
 ]
 
 [[package]]
@@ -217,6 +224,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "simple-dns"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5da8dfb6f2a439ebd970a8e66f68333c778e82aaeee37335c49bb8f957eb56d"
+dependencies = [
+ "bitflags",
 ]
 
 [[package]]

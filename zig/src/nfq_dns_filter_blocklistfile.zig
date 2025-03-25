@@ -18,7 +18,7 @@ var prng = std.Random.DefaultPrng.init(0);
 const QueueHandle = ?*netfilter.nfq_handle;
 const Queue = ?*netfilter.nfq_q_handle;
 
-const blocklist = [_][]const u8{"example.com"};
+var blocklist: std.ArrayList([]const u8) = undefined;
 var packet_counter: u32 = 0;
 
 fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data, data: ?*anyopaque) callconv(.C) c_int {
@@ -69,7 +69,7 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
             logger.log("UDP DNS packet handled (ID: {}), Domain: {s}\n", .{ id, qname });
 
             // check if domain is in blocklist
-            for (blocklist) |domain| {
+            for (blocklist.items) |domain| {
                 if (std.mem.eql(u8, qname, domain)) {
                     logger.log("Domain {s} is blocked. Dropping packet.\n", .{qname});
                     return netfilter.NF_DROP;
@@ -91,10 +91,49 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
     return netfilter.nfq_set_verdict(queue, id, netfilter.NF_ACCEPT, 0, null);
 }
 
+fn loadBlocklist(allocator: std.mem.Allocator, file_path: []const u8) !std.ArrayList([]const u8) {
+    var list = std.ArrayList([]const u8).init(allocator);
+    const file = try std.fs.cwd().openFile(file_path, .{});
+    defer file.close();
+
+    var buf_reader = std.io.bufferedReader(file.reader());
+    var in_stream = buf_reader.reader();
+
+    var line_buffer: [256]u8 = undefined;
+    while (try in_stream.readUntilDelimiterOrEof(&line_buffer, '\n')) |line| {
+        // skip any comments or empty lines
+        if (line.len == 0 or line[0] == '#') continue;
+
+        const domain = std.mem.trim(u8, line, " \r\n"); // trim whitespace
+
+        try list.append(try allocator.dupe(u8, domain));
+    }
+
+    return list;
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    //const allocator = gpa.allocator();
+    const allocator = gpa.allocator();
+
+    // command line args
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    if (args.len < 2) {
+        logger.log("Usage: {s} <blocklist_file>\n", .{args[0]});
+        std.process.exit(1);
+    }
+
+    // load blocklist
+    blocklist = try loadBlocklist(allocator, args[1]);
+    defer {
+        for (blocklist.items) |domain| {
+            allocator.free(domain);
+        }
+        blocklist.deinit();
+    }
 
     var h: ?*netfilter.nfq_handle = undefined;
     var qh: ?*netfilter.nfq_q_handle = undefined;

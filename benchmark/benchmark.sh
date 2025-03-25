@@ -11,6 +11,7 @@ ROUTER_EXECUTABLE="../zig/zig-out/bin/zig_router"
 ROUTER_OUTPUT="router_output.txt"
 DNSPERF_OUTPUT="dnsperf_output.txt"
 PERF_OUTPUT="perf_stat_output.txt"
+PARSED_OUTPUT="parsed_output.txt"
 
 # Start DNS server in background
 echo "Starting DNS server..."
@@ -44,8 +45,14 @@ sudo kill $ROUTER_PID
 echo "Stopping DNS server..."
 sudo kill $DNS_SERVER_PID
 
+# Give everything a sec to wrap up
+sleep 2
+
+# Parse output files
+python3 ./extract_outputs.py "$PERF_OUTPUT" "$DNSPERF_OUTPUT" "$PARSED_OUTPUT"
+
 echo "Benchmark completed. Output saved to:"
 echo "- Router output: $ROUTER_OUTPUT"
 echo "- DNSperf output: $DNSPERF_OUTPUT"
 echo "- Perf stat output: $PERF_OUTPUT"
-
+echo "- Perf stat output: $PARSED_OUTPUT"

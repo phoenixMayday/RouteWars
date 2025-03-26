@@ -1,0 +1,23 @@
+,Zig,Go,Rust
+perf,,,
+cycles,1570924.4,2028627.2,1653047
+instructions,1014371.4,1034169.2,997799.8
+cache-references,375681.4,385857.2,371146.4
+cache-misses,8436.2,9092.2,8369.4
+branches,201684,205207,196281
+branch-misses,10656.6,11468.2,10870
+page-faults,22.4,29.6,22.4
+context-switches,1.6,3,2.2
+cpu-migrations,0,0,0.4
+LLC-load-misses,7792.6,11213,7402.6
+time elapsed (s),32.03565385,133.0818717,31.83544529
+dnsperf,,,
+Queries sent,5000000,5000000,5000000
+Queries completed,5000000,5000000,5000000
+Queries lost,0,0,0
+Run time (s),31.703878,132.6069712,31.2700642
+Queries per second,157816.9595,37709.992,159925.1274
+Average Latency (s),0.0006236,0.0025792,0.000619
+Min Latency (s),0.0000216,0.0000362,0.0000216
+Max Latency (s),0.0060596,0.0115252,0.0070876
+Latency StdDev (s),0.0001022,0.0006634,0.0000904

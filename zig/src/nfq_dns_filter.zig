@@ -19,7 +19,7 @@ const QueueHandle = ?*netfilter.nfq_handle;
 const Queue = ?*netfilter.nfq_q_handle;
 
 const blocklist = [_][]const u8{"example.com"};
-var packet_counter: u32 = 0;
+//var packet_counter: u32 = 0;
 
 fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data, data: ?*anyopaque) callconv(.C) c_int {
     _ = nfmsg;
@@ -54,7 +54,7 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
         // Calculate whether to ignore this packet based on ignore_dns percentage
         const ignore_dns = build_options.ignore_dns;
         const should_ignore = prng.random().intRangeLessThan(u8, 0, 100) < ignore_dns;
-        packet_counter += 1;
+        //packet_counter += 1;
 
         if (!should_ignore) {
             const dns_payload = transport_payload[@sizeOf(dns.udphdr)..];
@@ -72,7 +72,8 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
             for (blocklist) |domain| {
                 if (std.mem.eql(u8, qname, domain)) {
                     logger.log("Domain {s} is blocked. Dropping packet.\n", .{qname});
-                    return netfilter.NF_DROP;
+                    //return netfilter.NF_DROP;
+                    return netfilter.nfq_set_verdict(queue, id, netfilter.NF_DROP, 0, null);
                 }
             }
         } else {
@@ -92,8 +93,8 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfa: ?*netfilter.nfq_data
 }
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+    //var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    //defer _ = gpa.deinit();
     //const allocator = gpa.allocator();
 
     var h: ?*netfilter.nfq_handle = undefined;

@@ -11,7 +11,7 @@ const logger = @import("logger.zig");
 // Values we can change for testing
 const BATCH_SIZE = 10;
 const TIMEOUT_NS = 1_000_000_000; // 1 second timeout
-const NUM_WORKER_THREADS = 3; // Can be adjusted to match system's capabilities
+const NUM_WORKER_THREADS = 4; // Can be adjusted to match system's capabilities
 var allocator = std.heap.page_allocator;
 
 // nfq_handle represents a connection to the Netfilter queue subsystem

@@ -1,6 +1,7 @@
 const std = @import("std");
 
 // Import C Netfilter libraries for access to nfqueue
+// https://github.com/formorer/pkg-libnetfilter-queue/blob/master/src/libnetfilter_queue.c
 const netfilter = @cImport({
     @cInclude("libnetfilter_queue/libnetfilter_queue.h");
     @cInclude("linux/netfilter.h");
@@ -8,14 +9,17 @@ const netfilter = @cImport({
 const logger = @import("logger.zig");
 
 // Values we can change for testing
+const BATCH_SIZE = 10;
 const TIMEOUT_NS = 1_000_000_000; // 1 second timeout
-const NUM_WORKER_THREADS = 5;
+const NUM_WORKER_THREADS = 5; // Can be adjusted to match system's capabilities
 var allocator = std.heap.page_allocator;
 
 // nfq_handle represents a connection to the Netfilter queue subsystem
+// You'd use this handle for opening/closing opening a connection to the queue
 const QueueHandle = ?*netfilter.nfq_handle;
 
 // nfq_q_handle represents a SPECIFIC queue in the Netfilter queue subsystem
+// You'd use this handle for determining how packets are handled
 const Queue = ?*netfilter.nfq_q_handle;
 
 // Make a packet queue that can be safely accessed
@@ -24,7 +28,7 @@ var packet_queue: std.ArrayList(Packet) = undefined; // dynamic array of packets
 var mutex = std.Thread.Mutex{}; // mutex to synchronise access to packet_queue
 var cond = std.Thread.Condition{}; // will signal worker threads when new packets are available
 
-// Thread pool
+// Set up a thread pool instead of endlessly generating new threads!
 var thread_pool: std.ArrayList(std.Thread) = undefined; // dynamic array of worker threads
 var shutdown = false; // signals worker threads to shutdown gracefully
 
@@ -36,35 +40,49 @@ fn worker() void {
 
         while (packet_queue.items.len == 0 and !shutdown) {
             cond.timedWait(&mutex, TIMEOUT_NS) catch {
-                // Timeout reached, check if we should shutdown
-                if (shutdown) {
-                    mutex.unlock();
-                    return;
-                }
-                continue;
+                // Timeout reached, process whatever packets are available
+                break;
             };
         }
 
-        if (shutdown and packet_queue.items.len == 0) {
+        if (packet_queue.items.len == 0) {
             mutex.unlock();
-            return;
+            if (shutdown) { // Graceful shutdown
+                break;
+            } else { // Or skip iteration
+                continue;
+            }
+        }
+        if (shutdown and packet_queue.items.len == 0) { // graceful shutdown
+            mutex.unlock();
+            break;
         }
 
-        // Take the next packet from the queue
-        const packet = packet_queue.orderedRemove(0);
+        // Take ownership of packets in queue and clear the queue (all in one convenient fucnction :] )
+        const batch = packet_queue.toOwnedSlice() catch {
+            mutex.unlock();
+            logger.log("Error: Failed to take ownership of packet queue\n", .{});
+            continue;
+        };
         mutex.unlock();
 
-        // Process the packet
-        logger.log("Processing packet (id: {}, length: {} bytes). First {} bytes: ", .{
-            packet.id,
-            packet.payload.len,
-            @min(packet.payload.len, 16),
-        });
-        for (0..@min(packet.payload.len, 16)) |i| {
-            logger.log("{x:0>2} ", .{packet.payload[i]});
+        logger.log("Batch size: {}\n", .{batch.len});
+
+        // Process packets in batch
+        for (batch) |packet| {
+            // Print the first few bytes of the payload for demonstration
+            logger.log("Packet processed (id: {}, length: {} bytes). First {} bytes: ", .{
+                packet.id,
+                packet.payload.len,
+                @min(packet.payload.len, 16),
+            });
+            for (0..@min(packet.payload.len, 16)) |i| {
+                logger.log("{x:0>2} ", .{packet.payload[i]});
+            }
+            logger.log("\n", .{});
+            allocator.free(packet.payload);
         }
-        logger.log("\n", .{});
-        allocator.free(packet.payload);
+        allocator.free(batch);
     }
 }
 
@@ -100,20 +118,26 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
 
         // Add packet to queue
         mutex.lock();
-        defer mutex.unlock();
-
         packet_queue.append(Packet{ .payload = payload_copy, .id = id }) catch {
             allocator.free(payload_copy);
+            mutex.unlock();
             logger.log("Error: Failed to add packet to queue\n", .{});
             return netfilter.NF_DROP;
         };
 
-        // Signal one worker thread
-        cond.signal();
+        // Signal worker thread once batch size is reach
+        if (packet_queue.items.len >= BATCH_SIZE) {
+            cond.signal();
+        }
+
+        mutex.unlock();
     }
 
     // Re-inject the packet back into the kernel
     return netfilter.nfq_set_verdict(queue, id, netfilter.NF_ACCEPT, 0, null);
+    //const verdict_result = netfilter.nfq_set_verdict(queue, id, netfilter.NF_REPEAT, @as(u32, @intCast(payload_len)), payload);
+    //std.debug.print("Verdict result: {}\n", .{verdict_result});
+    //return verdict_result;
 }
 
 pub fn main() !void {
@@ -133,6 +157,7 @@ pub fn main() !void {
     defer _ = netfilter.nfq_close(h); // Discard the return value
 
     // Unbind then re-bind Netfilter queue to AF_INET
+    // AF_INET is the IPv4 protocol family, there's AF_INET6 and AF_UNIX for IPv6 and local comms
     if (netfilter.nfq_unbind_pf(h, netfilter.AF_INET) < 0) {
         logger.log("Error during nfq_unbind_pf()\n", .{});
         return error.NfqUnbindFailed;
@@ -156,7 +181,7 @@ pub fn main() !void {
         return error.NfqSetModeFailed;
     }
 
-    // Get file descriptor for queue
+    // Get file descriptor for queue so we know where to read from
     fd = netfilter.nfq_fd(h);
 
     // Initialise packet_queue
@@ -181,9 +206,10 @@ pub fn main() !void {
 
     while (true) {
         // Receive data from the queue
+        // Cast the return value of std.c.recv to c_int
         rv = @as(c_int, @intCast(std.c.recv(fd, &buf, buf.len, 0)));
         if (rv >= 0) {
-            _ = netfilter.nfq_handle_packet(h, &buf, rv);
+            _ = netfilter.nfq_handle_packet(h, &buf, rv); // Discard the return value
         } else {
             logger.log("Error during recv()\n", .{});
             break;

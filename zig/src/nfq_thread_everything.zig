@@ -51,7 +51,7 @@ fn callback(queue: Queue, nfmsg: ?*netfilter.nfgenmsg, nfad: ?*netfilter.nfq_dat
                 for (0..max_bytes_to_print) |i| {
                     logger.log("{x:0>2} ", .{payload_ptr[i]});
                 }
-                std.debug.print("\n", .{});
+                logger.log("\n", .{});
             }
         }.handle;
 

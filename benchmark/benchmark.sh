@@ -1,12 +1,16 @@
 #!/bin/bash
 
-ROUTER_EXECUTABLE="../zig/zig-out/bin/zig_router"
+#ROUTER_EXECUTABLE="../zig/zig-out/bin/zig_router"
 #ROUTER_EXECUTABLE="../go/nfq_go_router"
 
 #ROUTER_EXECUTABLE="../rust/target/debug/nfq_rust_router"
 #ROUTER_EXECUTABLE="../rust/target/debug/accept_all"
 #ROUTER_EXECUTABLE="../rust/target/debug/dns_filter_noio"
+#ROUTER_EXECUTABLE="../rust/target/debug/thread_everything"
+#ROUTER_EXECUTABLE="../rust/target/debug/worker_threads"
+ROUTER_EXECUTABLE="../rust/target/debug/dns_filter_worker_threads"
 
+PACKET_TIMEOUT=0.1
 
 ROUTER_OUTPUT="router_output.txt"
 DNSPERF_OUTPUT="dnsperf_output.txt"
@@ -35,7 +39,7 @@ sudo ip netns exec ns2 perf stat -p $ROUTER_PID -o $PERF_OUTPUT -e cycles,instru
 
 # Run dnsperf benchmark
 echo "Starting dnsperf benchmark..."
-sudo ip netns exec ns1 dnsperf -s 192.168.1.2 -d ./queries.txt -n 1000000 -t 0.1 > $DNSPERF_OUTPUT 2>&1
+sudo ip netns exec ns1 dnsperf -s 192.168.1.2 -d ./queries.txt -n 1000000 -t $PACKET_TIMEOUT -q 1000 > $DNSPERF_OUTPUT 2>&1
 
 # Stop router implementation
 echo "Stopping router implementation..."
@@ -55,4 +59,4 @@ echo "Benchmark completed. Output saved to:"
 echo "- Router output: $ROUTER_OUTPUT"
 echo "- DNSperf output: $DNSPERF_OUTPUT"
 echo "- Perf stat output: $PERF_OUTPUT"
-echo "- Perf stat output: $PARSED_OUTPUT"
+echo "- Parsed output: $PARSED_OUTPUT"

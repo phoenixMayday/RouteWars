@@ -6,7 +6,8 @@ edition = "2024"
 [dependencies]
 nfq = "0.2.5"
 pnet = "0.35.0"
-simple-dns = "0.10.0"
+threadpool = "1.8.1"
+rand = "0.9.0"
 
 [[bin]]
 name = "accept_all"
@@ -23,3 +24,16 @@ path = "src/dns_filter.rs"
 [[bin]]
 name = "dns_filter_noio"
 path = "src/dns_filter_noio.rs"
+
+[[bin]]
+name = "thread_everything"
+path = "src/thread_everything.rs"
+
+[[bin]]
+name = "worker_threads"
+path = "src/worker_threads.rs"
+
+[[bin]]
+name = "dns_filter_worker_threads"
+path = "src/dns_filter_worker_threads.rs"
+

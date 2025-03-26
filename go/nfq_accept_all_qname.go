@@ -1,3 +1,5 @@
+//go:build acceptallqname
+
 package main
 
 import (
